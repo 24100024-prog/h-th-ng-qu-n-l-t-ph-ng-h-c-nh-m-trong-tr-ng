@@ -4,7 +4,8 @@ import model.Room;
 
 public class FreeFeePolicy implements RoomFeePolicy {
     @Override
-    public double calculateFee(Room room, int hours) {
+    public double calculateFee(int hours) {
         return 0.0;
     }
+}
 }
