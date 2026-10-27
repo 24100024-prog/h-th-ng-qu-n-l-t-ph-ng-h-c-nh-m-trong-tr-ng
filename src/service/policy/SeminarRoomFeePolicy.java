@@ -1,5 +1,4 @@
-package policy
-  
+package service.policy  
 public class SeminarRoomFeePolicy implements RoomFeePolicy {
     private double baseFee;
     private double feePerHour;
