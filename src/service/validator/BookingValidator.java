@@ -1,7 +1,7 @@
 package service.validator;
 
-import model.Booking;
+import utils.exceptions.BookingException;
 
 public interface BookingValidator {
-    boolean validate(Booking booking);
+    void validate(BookingRequest request) throws BookingException;
 }
