@@ -4,24 +4,37 @@ public abstract class Room {
     private String roomId;
     private String roomName;
     private int capacity;
-    private String status; // "DANG_HOAT_DONG", "BAO_TRI"
+    protected RoomFeePolicy feePolicy;
 
-    public Room() {}
-
-    public Room(String roomId, String roomName, int capacity, String status) {
+    public Room(String roomId, String roomName, int capacity, RoomFeePolicy feePolicy) {
         this.roomId = roomId;
         this.roomName = roomName;
         this.capacity = capacity;
-        this.status = status;
+        this.feePolicy = feePolicy;
     }
 
-    // Getter & Setter
-    public String getRoomId() { return roomId; }
-    public void setRoomId(String roomId) { this.roomId = roomId; }
-    public String getRoomName() { return roomName; }
-    public void setRoomName(String roomName) { this.roomName = roomName; }
-    public int getCapacity() { return capacity; }
-    public void setCapacity(int capacity) { this.capacity = capacity; }
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
+    public double calculateTotalFee(int hours) {
+        if (feePolicy == null) {
+            return 0.0;
+        }
+        return feePolicy.calculateFee(hours);
+    }
+
+    public void setFeePolicy(RoomFeePolicy feePolicy) {
+        this.feePolicy = feePolicy;
+    }
+
+    public String getRoomId() {
+        return roomId;
+    }
+
+    public String getRoomName() {
+        return roomName;
+    }
+
+    public int getCapacity() {
+        return capacity;
+    }
+
+    public abstract void displayInfo();
 }
