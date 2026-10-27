@@ -17,17 +17,16 @@ public class OverlapValidator implements BookingValidator {
     @Override
     public void validate(BookingRequest request) throws BookingException {
         for (Booking existing : bookingRepository.findAll()) {
-            if (!existing.getRoomId().equals(request.getRoomId())) continue;
+            if (!existing.isActive() || !existing.getRoomId().equals(request.getRoomId())) continue;
             if (isOverlapping(existing.getTimeSlot(), request.getTimeSlot())) {
-                throw new OverlapBookingException("Phòng " + request.getRoomId()
-                        + " đã có lịch đặt từ " + DateTimeUtils.format(existing.getTimeSlot().getStartTime())
-                        + " đến " + DateTimeUtils.format(existing.getTimeSlot().getEndTime()));
+                throw new OverlapBookingException("Phong " + request.getRoomId()
+                        + " da co lich dat tu " + DateTimeUtils.format(existing.getTimeSlot().getStartTime())
+                        + " den " + DateTimeUtils.format(existing.getTimeSlot().getEndTime()));
             }
         }
     }
 
     private boolean isOverlapping(TimeSlot a, TimeSlot b) {
-        return a.getStartTime().isBefore(b.getEndTime())
-                && b.getStartTime().isBefore(a.getEndTime());
+        return a.overlaps(b);
     }
 }

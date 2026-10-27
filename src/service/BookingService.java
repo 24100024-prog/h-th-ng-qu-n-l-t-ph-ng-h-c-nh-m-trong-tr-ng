@@ -1,15 +1,19 @@
 package service;
 
 import model.Booking;
+import model.BookingDetail;
 import model.Room;
 import model.TimeSlot;
 import repository.BookingRepository;
 import repository.RoomRepository;
+import repository.StudentRepository;
 import service.policy.RoomFeePolicy;
 import service.validator.BookingRequest;
 import service.validator.BookingValidator;
 import utils.exceptions.BookingException;
-import java.time.Duration;
+import utils.exceptions.InvalidTimeException;
+import utils.exceptions.RoomMaintenanceException;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -17,8 +21,8 @@ import java.util.stream.Collectors;
 public class BookingService {
     private final BookingRepository bookingRepository;
     private final RoomRepository roomRepository;
-    private final RoomFeePolicy feePolicy;
     private final List<BookingValidator> validators;
+    private RoomFeePolicy feePolicy;
 
     public BookingService(BookingRepository bookingRepository,
                           RoomRepository roomRepository,
@@ -30,6 +34,14 @@ public class BookingService {
         this.validators = validators;
     }
 
+    public RoomFeePolicy getFeePolicy() { return feePolicy; }
+
+    /** Chinh sach moi chi ap dung cho booking tao sau do; phi cua booking cu giu nguyen nhu da luu. */
+    public void setFeePolicy(RoomFeePolicy feePolicy) {
+        if (feePolicy == null) throw new IllegalArgumentException("Chinh sach phi khong duoc null");
+        this.feePolicy = feePolicy;
+    }
+
     public Booking createBooking(String studentId, String roomId, TimeSlot timeSlot, int numberOfPeople)
             throws BookingException {
         return createBooking(studentId, roomId, timeSlot, numberOfPeople, LocalDateTime.now());
@@ -38,36 +50,32 @@ public class BookingService {
     public Booking createBooking(String studentId, String roomId, TimeSlot timeSlot, int numberOfPeople,
                                  LocalDateTime now) throws BookingException {
         if (studentId == null || studentId.trim().isEmpty()) {
-            throw new BookingException("Mã sinh viên không được để trống");
+            throw new BookingException("Ma sinh vien khong duoc de trong");
         }
         if (timeSlot == null || timeSlot.getStartTime() == null || timeSlot.getEndTime() == null) {
-            throw new BookingException("Khung giờ không hợp lệ");
+            throw new InvalidTimeException("Khung gio khong hop le");
         }
-        if (!timeSlot.getEndTime().isAfter(timeSlot.getStartTime())) {
-            throw new BookingException("Giờ kết thúc phải sau giờ bắt đầu");
+        if (!timeSlot.isValid()) {
+            throw new InvalidTimeException("Gio ket thuc phai sau gio bat dau");
         }
         if (timeSlot.getStartTime().isBefore(now)) {
-            throw new BookingException("Không thể đặt phòng trong quá khứ");
+            throw new InvalidTimeException("Khong the dat phong trong qua khu");
         }
 
         Room room = roomRepository.findById(roomId)
-                .orElseThrow(() -> new BookingException("Không tìm thấy phòng " + roomId));
-        if ("BAO_TRI".equals(room.getStatus())) {
-            throw new BookingException(room.getRoomName() + " đang bảo trì");
+                .orElseThrow(() -> new BookingException("Khong tim thay phong " + roomId));
+        if (room.isUnderMaintenance()) {
+            throw new RoomMaintenanceException(room.getRoomName() + " dang bao tri, khong the dat");
         }
 
         String bookingId = generateNextId();
         BookingRequest request = new BookingRequest(bookingId, studentId, roomId, timeSlot, numberOfPeople);
-
         for (BookingValidator validator : validators) {
             validator.validate(request);
         }
 
-        long minutes = Duration.between(timeSlot.getStartTime(), timeSlot.getEndTime()).toMinutes();
-        int hours = (int) Math.ceil(minutes / 60.0);
-        double fee = feePolicy.calculateFee(room, hours);
-
-        Booking booking = new Booking(bookingId, studentId, roomId, timeSlot, fee);
+        double fee = feePolicy.calculateFee(room, timeSlot.getBillableHours());
+        Booking booking = new Booking(bookingId, studentId, roomId, timeSlot, numberOfPeople, fee);
         bookingRepository.add(booking);
         return booking;
     }
@@ -76,25 +84,47 @@ public class BookingService {
         cancelBooking(bookingId, studentId, LocalDateTime.now());
     }
 
+    /** Huy = doi trang thai sang DA_HUY (giu lai lich su); booking da huy khong con chiem lich phong. */
     public void cancelBooking(String bookingId, String studentId, LocalDateTime now) throws BookingException {
-        Booking booking = bookingRepository.findAll().stream()
-                .filter(b -> b.getBookingId().equals(bookingId))
-                .findFirst()
-                .orElseThrow(() -> new BookingException("Không tìm thấy lịch đặt " + bookingId));
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new BookingException("Khong tim thay lich dat " + bookingId));
 
+        if (!booking.isActive()) {
+            throw new BookingException("Lich " + bookingId + " da duoc huy truoc do");
+        }
         if (!booking.getStudentId().equals(studentId)) {
-            throw new BookingException("Bạn không phải người đặt lịch " + bookingId + " nên không thể hủy");
+            throw new BookingException("Ban khong phai nguoi dat lich " + bookingId + " nen khong the huy");
         }
         if (!booking.getTimeSlot().getStartTime().isAfter(now)) {
-            throw new BookingException("Lịch " + bookingId + " đã bắt đầu hoặc đã kết thúc, không thể hủy");
+            throw new BookingException("Lich " + bookingId + " da bat dau hoac da ket thuc, khong the huy");
         }
-        bookingRepository.remove(booking);
+        booking.cancel();
+    }
+
+    public List<Booking> getAllBookings() {
+        return bookingRepository.findAll();
     }
 
     public List<Booking> getBookingsByStudent(String studentId) {
         return bookingRepository.findAll().stream()
                 .filter(b -> b.getStudentId().equals(studentId))
                 .collect(Collectors.toList());
+    }
+
+    public BookingDetail getDetail(String bookingId, StudentRepository studentRepository) throws BookingException {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new BookingException("Khong tim thay lich dat " + bookingId));
+        return new BookingDetail(booking,
+                studentRepository.findById(booking.getStudentId()).orElse(null),
+                roomRepository.findById(booking.getRoomId()).orElse(null));
+    }
+
+    /** Phi uoc tinh cho mot phong va khoang gio theo chinh sach hien hanh (chua tao booking). */
+    public double estimateFee(String roomId, TimeSlot slot) throws BookingException {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new BookingException("Khong tim thay phong " + roomId));
+        if (slot == null || !slot.isValid()) throw new InvalidTimeException("Khung gio khong hop le");
+        return feePolicy.calculateFee(room, slot.getBillableHours());
     }
 
     private String generateNextId() {

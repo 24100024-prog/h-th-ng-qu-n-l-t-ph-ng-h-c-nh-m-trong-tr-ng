@@ -15,14 +15,14 @@ public class CapacityValidator implements BookingValidator {
     @Override
     public void validate(BookingRequest request) throws BookingException {
         Room room = roomRepository.findById(request.getRoomId())
-                .orElseThrow(() -> new BookingException("Không tìm thấy phòng " + request.getRoomId()));
+                .orElseThrow(() -> new BookingException("Khong tim thay phong " + request.getRoomId()));
 
         if (request.getNumberOfPeople() <= 0) {
-            throw new BookingException("Số người phải lớn hơn 0");
+            throw new BookingException("So nguoi phai lon hon 0");
         }
         if (request.getNumberOfPeople() > room.getCapacity()) {
-            throw new CapacityExceededException(room.getRoomName() + " chỉ chứa tối đa "
-                    + room.getCapacity() + " người, nhưng đăng ký " + request.getNumberOfPeople());
+            throw new CapacityExceededException(room.getRoomName() + " chi chua toi da "
+                    + room.getCapacity() + " nguoi, nhung dang ky " + request.getNumberOfPeople());
         }
     }
 }

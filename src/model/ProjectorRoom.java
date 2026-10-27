@@ -10,4 +10,13 @@ public class ProjectorRoom extends Room {
 
     public boolean isHasProjector() { return hasProjector; }
     public void setHasProjector(boolean hasProjector) { this.hasProjector = hasProjector; }
+
+    @Override
+    public String getType() { return "PROJECTOR"; }
+
+    @Override
+    public String getExtraInfo() { return String.valueOf(hasProjector); }
+
+    @Override
+    public String toString() { return super.toString() + " | may chieu: " + (hasProjector ? "co" : "khong"); }
 }

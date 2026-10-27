@@ -10,4 +10,13 @@ public class SeminarRoom extends Room {
 
     public int getStageCapacity() { return stageCapacity; }
     public void setStageCapacity(int stageCapacity) { this.stageCapacity = stageCapacity; }
+
+    @Override
+    public String getType() { return "SEMINAR"; }
+
+    @Override
+    public String getExtraInfo() { return String.valueOf(stageCapacity); }
+
+    @Override
+    public String toString() { return super.toString() + " | suc chua san khau: " + stageCapacity; }
 }

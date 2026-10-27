@@ -39,15 +39,15 @@ public class MaxHoursValidator implements BookingValidator {
         for (; !day.isAfter(lastDay); day = day.plusDays(1)) {
             long usedMinutes = minutesOnDay(slot, day);
             for (Booking existing : bookingRepository.findAll()) {
-                if (existing.getStudentId().equals(request.getStudentId())) {
+                if (existing.isActive() && existing.getStudentId().equals(request.getStudentId())) {
                     usedMinutes += minutesOnDay(existing.getTimeSlot(), day);
                 }
             }
             if (usedMinutes > maxHoursPerDay * 60L) {
-                throw new MaxHoursExceededException("Sinh viên " + request.getStudentId()
-                        + " sẽ có tổng " + (usedMinutes / 60) + "h" + String.format("%02d", usedMinutes % 60)
-                        + " trong ngày " + day.format(DAY_FORMAT)
-                        + ", vượt giới hạn " + maxHoursPerDay + " giờ/ngày");
+                throw new MaxHoursExceededException("Sinh vien " + request.getStudentId()
+                        + " se co tong " + (usedMinutes / 60) + "h" + String.format("%02d", usedMinutes % 60)
+                        + " trong ngay " + day.format(DAY_FORMAT)
+                        + ", vuot gioi han " + maxHoursPerDay + " gio/ngay");
             }
         }
     }

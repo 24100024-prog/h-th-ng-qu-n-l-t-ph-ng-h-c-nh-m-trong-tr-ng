@@ -7,4 +7,9 @@ public class FreeFeePolicy implements RoomFeePolicy {
     public double calculateFee(Room room, int hours) {
         return 0.0;
     }
+
+    @Override
+    public String getName() {
+        return "Mien phi";
+    }
 }

@@ -13,6 +13,8 @@ public abstract class User {
         this.phone = phone;
     }
 
+    public abstract void hienThiThongTin();
+
     // Getter & Setter
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }

@@ -19,6 +19,7 @@ public class Student extends User {
 
     @Override
     public void hienThiThongTin() {
-        System.out.println("SV: " + getName() + " - Lớp: " + lop);
+        System.out.println("SV: " + getId() + " | " + getName() + " | SDT: " + getPhone()
+                + " | Lop: " + lop + " | Email: " + email);
     }
 }
