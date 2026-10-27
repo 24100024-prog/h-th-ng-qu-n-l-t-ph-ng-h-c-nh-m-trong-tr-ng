@@ -1,16 +1,18 @@
 package model;
 
-public class SeminarRoomFeePolicy implements RoomFeePolicy {
-    private double baseFee;
-    private double feePerHour;
+public class SeminarRoom extends Room {
+    private boolean hasAudioSystem;
 
-    public SeminarRoomFeePolicy(double baseFee, double feePerHour) {
-        this.baseFee = baseFee;
-        this.feePerHour = feePerHour;
+    public SeminarRoom(String roomId, String roomName, int capacity, boolean hasAudioSystem, double baseFee, double feePerHour) {
+        super(roomId, roomName, capacity, new SeminarRoomFeePolicy(baseFee, feePerHour));
+        this.hasAudioSystem = hasAudioSystem;
     }
 
     @Override
-    public double calculateFee(int hours) {
-        return baseFee + (hours * feePerHour);
+    public void displayInfo() {
+        System.out.println("[Phòng Hội Thảo] ID: " + getRoomId() 
+            + " | Tên: " + getRoomName() 
+            + " | Sức chứa: " + getCapacity() 
+            + " | Âm thanh: " + (hasAudioSystem ? "Có" : "Không"));
     }
 }
