@@ -1,13 +1,16 @@
 package model;
 
-public class SeminarRoom extends Room {
-    private int stageCapacity;
+public class SeminarRoomFeePolicy implements RoomFeePolicy {
+    private double baseFee;
+    private double feePerHour;
 
-    public SeminarRoom(String roomId, String roomName, int capacity, String status, int stageCapacity) {
-        super(roomId, roomName, capacity, status);
-        this.stageCapacity = stageCapacity;
+    public SeminarRoomFeePolicy(double baseFee, double feePerHour) {
+        this.baseFee = baseFee;
+        this.feePerHour = feePerHour;
     }
 
-    public int getStageCapacity() { return stageCapacity; }
-    public void setStageCapacity(int stageCapacity) { this.stageCapacity = stageCapacity; }
+    @Override
+    public double calculateFee(int hours) {
+        return baseFee + (hours * feePerHour);
+    }
 }
