@@ -2,11 +2,7 @@ package main;
 
 import model.Booking;
 import model.BookingDetail;
-import model.NormalRoom;
-import model.ProjectorRoom;
 import model.Room;
-import model.SeminarRoom;
-import model.Student;
 import model.TimeSlot;
 import repository.BookingRepository;
 import repository.RoomRepository;
@@ -25,6 +21,10 @@ import service.validator.OverlapValidator;
 import service.validator.StudentExistsValidator;
 import utils.DateTimeUtils;
 import utils.InputValidator;
+import ui.ConsoleIO;
+import ui.DataUI;
+import ui.RoomUI;
+import ui.StudentUI;
 import utils.exceptions.BookingException;
 
 import java.io.IOException;
@@ -48,6 +48,10 @@ public class Main {
     private final StudentService studentService = new StudentService(studentRepository, bookingRepository);
     private final RoomService roomService = new RoomService(roomRepository, bookingRepository);
     private final DataService dataService = new DataService(studentRepository, roomRepository, bookingRepository);
+    private final ConsoleIO io = new ConsoleIO(scanner); // dung chung Scanner voi Main
+    private final StudentUI studentUI = new StudentUI(io, studentService);
+    private final RoomUI roomUI = new RoomUI(io, roomService);
+    private final DataUI dataUI = new DataUI(io, dataService, studentRepository, roomRepository, bookingRepository);
     private final BookingService bookingService;
 
     public static void main(String[] args) throws Exception {
@@ -71,17 +75,17 @@ public class Main {
         while (running) {
             printMenu();
             switch (readLine("Chon chuc nang: ")) {
-                case "1": studentMenu(); break;
-                case "2": roomMenu(); break;
-                case "3": listRooms(); break;
+                case "1": studentUI.run(); break;
+                case "2": roomUI.run(); break;
+                case "3": roomUI.showRoomList(); break;
                 case "4": checkFreeSlots(); break;
                 case "5": createBooking(); break;
                 case "6": listBookings(); break;
                 case "7": showBookingDetail(); break;
                 case "8": cancelBooking(); break;
                 case "9": feeMenu(); break;
-                case "10": saveData(); break;
-                case "11": loadData(); break;
+                case "10": dataUI.save(); break;
+                case "11": dataUI.load(); break;
                 case "0": running = false; break;
                 default: System.out.println("Lua chon khong hop le, vui long nhap lai.");
             }
@@ -105,134 +109,7 @@ public class Main {
         System.out.println(" 0. Thoat");
     }
 
-    // ------------------------------------------------------------ sinh vien
-    private void studentMenu() {
-        System.out.println("\n[Sinh vien] 1.Them  2.Danh sach  3.Cap nhat  4.Xoa  0.Quay lai");
-        switch (readLine("Chon: ")) {
-            case "1": {
-                String id = readLine("Ma SV: ");
-                String name = readLine("Ho ten: ");
-                String phone = readLine("SDT: ");
-                String lop = readLine("Lop: ");
-                String email = readLine("Email: ");
-                runGuarded(() -> {
-                    studentService.addStudent(new Student(id.trim(), name.trim(), phone.trim(), lop.trim(), email.trim()));
-                    System.out.println("Da them sinh vien " + id.trim());
-                });
-                break;
-            }
-            case "2":
-                listStudents();
-                break;
-            case "3": {
-                String id = readLine("Ma SV can sua: ").trim();
-                if (!studentRepository.existsById(id)) {
-                    System.out.println("Khong tim thay sinh vien " + id);
-                    break;
-                }
-                String name = readLine("Ho ten moi: ");
-                String phone = readLine("SDT moi: ");
-                String lop = readLine("Lop moi: ");
-                String email = readLine("Email moi: ");
-                runGuarded(() -> {
-                    studentService.updateStudent(id, name.trim(), phone.trim(), lop.trim(), email.trim());
-                    System.out.println("Da cap nhat sinh vien " + id);
-                });
-                break;
-            }
-            case "4": {
-                String id = readLine("Ma SV can xoa: ").trim();
-                runGuarded(() -> {
-                    studentService.deleteStudent(id);
-                    System.out.println("Da xoa sinh vien " + id);
-                });
-                break;
-            }
-            case "0": break;
-            default: System.out.println("Lua chon khong hop le.");
-        }
-    }
-
-    private void listStudents() {
-        List<Student> list = studentService.getAllStudents();
-        if (list.isEmpty()) {
-            System.out.println("Chua co sinh vien nao.");
-            return;
-        }
-        for (Student s : list) s.hienThiThongTin();
-    }
-
-    // ------------------------------------------------------------ phong
-    private void roomMenu() {
-        System.out.println("\n[Phong] 1.Them  2.Dat trang thai bao tri/hoat dong  3.Xoa  0.Quay lai");
-        switch (readLine("Chon: ")) {
-            case "1": addRoom(); break;
-            case "2": {
-                String id = readLine("Ma phong: ").trim();
-                String choice = readLine("1.Chuyen sang BAO TRI  2.Chuyen sang HOAT DONG: ");
-                if (!choice.equals("1") && !choice.equals("2")) {
-                    System.out.println("Lua chon khong hop le.");
-                    break;
-                }
-                runGuarded(() -> {
-                    roomService.setMaintenance(id, choice.equals("1"));
-                    System.out.println("Phong " + id + " hien o trang thai " + roomService.getRoom(id).getStatus());
-                });
-                break;
-            }
-            case "3": {
-                String id = readLine("Ma phong can xoa: ").trim();
-                runGuarded(() -> {
-                    roomService.deleteRoom(id);
-                    System.out.println("Da xoa phong " + id);
-                });
-                break;
-            }
-            case "0": break;
-            default: System.out.println("Lua chon khong hop le.");
-        }
-    }
-
-    private void addRoom() {
-        String type = readLine("Loai phong (1.Thuong  2.May chieu  3.Hoi thao): ");
-        if (!type.equals("1") && !type.equals("2") && !type.equals("3")) {
-            System.out.println("Loai phong khong hop le.");
-            return;
-        }
-        String id = readLine("Ma phong: ").trim();
-        String name = readLine("Ten phong: ").trim();
-        Integer capacity = readIntOrNull("Suc chua: ");
-        if (capacity == null) return;
-        Room room;
-        if (type.equals("1")) {
-            room = new NormalRoom(id, name, capacity, Room.ACTIVE);
-        } else if (type.equals("2")) {
-            String has = readLine("Co may chieu? (y/n): ").trim().toLowerCase();
-            room = new ProjectorRoom(id, name, capacity, Room.ACTIVE, has.equals("y"));
-        } else {
-            Integer stage = readIntOrNull("Suc chua san khau: ");
-            if (stage == null) return;
-            if (stage < 0) {
-                System.out.println("Suc chua san khau khong duoc am.");
-                return;
-            }
-            room = new SeminarRoom(id, name, capacity, Room.ACTIVE, stage);
-        }
-        runGuarded(() -> {
-            roomService.addRoom(room);
-            System.out.println("Da them phong " + id);
-        });
-    }
-
-    private void listRooms() {
-        List<Room> rooms = roomService.getAllRooms();
-        if (rooms.isEmpty()) {
-            System.out.println("Chua co phong nao.");
-            return;
-        }
-        for (Room r : rooms) System.out.println(r);
-    }
-
+    // ------------------------------------------------------------ gio trong
     private void checkFreeSlots() {
         String roomId = readLine("Ma phong: ").trim();
         LocalDate date = readDate("Ngay (dd/MM/yyyy): ");
@@ -375,37 +252,6 @@ public class Main {
         } else {
             System.out.println("Chua co du lieu da luu, bat dau voi du lieu trong.");
         }
-    }
-
-    private void saveData() {
-        Boolean binary = readFormat();
-        if (binary == null) return;
-        try {
-            dataService.saveAll(DataService.defaultDir(), binary);
-            System.out.println("Da luu du lieu vao thu muc '" + DataService.defaultDir() + "'.");
-        } catch (IOException e) {
-            System.out.println("Luu that bai: " + e.getMessage());
-        }
-    }
-
-    private void loadData() {
-        Boolean binary = readFormat();
-        if (binary == null) return;
-        try {
-            dataService.loadAll(DataService.defaultDir(), binary);
-            System.out.println("Da tai du lieu: " + studentRepository.findAll().size() + " sinh vien, "
-                    + roomRepository.findAll().size() + " phong, " + bookingRepository.findAll().size() + " booking.");
-        } catch (IOException e) {
-            System.out.println("Tai that bai (du lieu hien tai duoc giu nguyen): " + e.getMessage());
-        }
-    }
-
-    private Boolean readFormat() {
-        String c = readLine("Dinh dang (1.Text  2.Binary): ").trim();
-        if (c.equals("1")) return false;
-        if (c.equals("2")) return true;
-        System.out.println("Lua chon khong hop le.");
-        return null;
     }
 
     // ------------------------------------------------------------ nhap lieu
