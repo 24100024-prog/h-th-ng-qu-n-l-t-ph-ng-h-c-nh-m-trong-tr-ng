@@ -59,6 +59,8 @@ public class TestRunner {
         t.scenario("6. File I/O text va binary", t::fileIo);
         t.scenario("7. Tinh phi theo chinh sach", t::fees);
         t.scenario("8. Du lieu sai / file loi", t::badInputAndFiles);
+        t.scenario("9. Gio dat nam trong gio hoat dong", t::operatingHours);
+        t.scenario("10. isAvailable xu ly khung gio sai", t::availabilityValidation);
         System.out.println("\nKet qua: " + passed + " dat, " + failed + " that bai");
         System.exit(failed == 0 ? 0 : 1);
     }
@@ -181,6 +183,40 @@ public class TestRunner {
         check(b.getFee() == 60000.0, "doi chinh sach khong lam doi phi booking cu");
     }
 
+    
+    private void operatingHours() throws Exception {
+        expect(InvalidTimeException.class, () -> service.createBooking("SV001", "P101",
+                new TimeSlot(LocalDateTime.of(2030, 1, 2, 6, 0),
+                        LocalDateTime.of(2030, 1, 2, 8, 0)), 5, NOW));
+        expect(InvalidTimeException.class, () -> service.createBooking("SV001", "P101",
+                new TimeSlot(LocalDateTime.of(2030, 1, 2, 20, 0),
+                        LocalDateTime.of(2030, 1, 2, 22, 0)), 5, NOW));
+        expect(InvalidTimeException.class, () -> service.createBooking("SV001", "P101",
+                new TimeSlot(LocalDateTime.of(2030, 1, 2, 20, 0),
+                        LocalDateTime.of(2030, 1, 3, 8, 0)), 5, NOW));
+        Booking morning = service.createBooking("SV001", "P101",
+                new TimeSlot(LocalDateTime.of(2030, 1, 2, 7, 0),
+                        LocalDateTime.of(2030, 1, 2, 11, 0)), 5, NOW);
+        Booking evening = service.createBooking("SV002", "P101",
+                new TimeSlot(LocalDateTime.of(2030, 1, 2, 17, 0),
+                        LocalDateTime.of(2030, 1, 2, 21, 0)), 5, NOW);
+        check(morning.isActive() && evening.isActive(), "cho phep dat bat dau 07:00 va ket thuc 21:00");
+    }
+
+    private void availabilityValidation() throws Exception {
+        check(!roomService.isAvailable("P101", null), "slot null phai tra ve false");
+        check(!roomService.isAvailable("P101", new TimeSlot(
+                LocalDateTime.of(2030, 1, 2, 10, 0),
+                LocalDateTime.of(2030, 1, 2, 9, 0))), "slot ket thuc truoc bat dau phai tra ve false");
+        check(!roomService.isAvailable("P101", new TimeSlot(
+                LocalDateTime.of(2030, 1, 2, 6, 0),
+                LocalDateTime.of(2030, 1, 2, 8, 0))), "slot ngoai gio hoat dong phai tra ve false");
+        check(!roomService.isAvailable("P101", new TimeSlot(
+                LocalDateTime.of(2030, 1, 2, 20, 0),
+                LocalDateTime.of(2030, 1, 3, 8, 0))), "slot qua ngay phai tra ve false");
+        expect(IllegalArgumentException.class, () -> roomService.findFreeSlots("P101", null));
+    }
+
     private void badInputAndFiles() throws Exception {
         expect(BookingException.class, () -> service.createBooking("", "P101", slot(9, 10), 5, NOW));
         expect(BookingException.class, () -> service.createBooking("SV999", "P101", slot(9, 10), 5, NOW));
@@ -254,3 +290,4 @@ public class TestRunner {
         throw new AssertionError(what + ": can IOException nhung khong co loi");
     }
 }
+
