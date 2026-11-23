@@ -46,3 +46,4 @@ public abstract class Room {
         return roomId + " | " + roomName + " | " + getType() + " | suc chua " + capacity + " | " + status;
     }
 }
+
