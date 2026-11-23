@@ -52,3 +52,4 @@ public class TimeSlot {
         return DateTimeUtils.format(startTime) + " - " + DateTimeUtils.format(endTime);
     }
 }
+
