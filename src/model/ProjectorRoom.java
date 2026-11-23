@@ -20,3 +20,4 @@ public class ProjectorRoom extends Room {
     @Override
     public String toString() { return super.toString() + " | may chieu: " + (hasProjector ? "co" : "khong"); }
 }
+
