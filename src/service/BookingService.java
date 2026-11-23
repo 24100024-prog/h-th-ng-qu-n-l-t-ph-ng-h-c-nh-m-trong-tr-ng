@@ -61,6 +61,10 @@ public class BookingService {
         if (timeSlot.getStartTime().isBefore(now)) {
             throw new InvalidTimeException("Khong the dat phong trong qua khu");
         }
+        if (!RoomService.isWithinOperatingHours(timeSlot)) {
+            throw new InvalidTimeException("Khung gio dat phong phai nam trong cung mot ngay va trong gio hoat dong "
+                    + RoomService.OPEN_TIME + " - " + RoomService.CLOSE_TIME);
+        }
 
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new BookingException("Khong tim thay phong " + roomId));
@@ -138,3 +142,4 @@ public class BookingService {
         return String.format("BK%03d", max + 1);
     }
 }
+
