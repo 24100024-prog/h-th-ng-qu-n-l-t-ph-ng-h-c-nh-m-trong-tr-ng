@@ -23,6 +23,8 @@ import utils.DateTimeUtils;
 import utils.InputValidator;
 import ui.ConsoleIO;
 import ui.DataUI;
+import ui.BookingUI;
+import ui.FeeUI;
 import ui.RoomUI;
 import ui.StudentUI;
 import utils.exceptions.BookingException;
@@ -53,6 +55,8 @@ public class Main {
     private final RoomUI roomUI = new RoomUI(io, roomService);
     private final DataUI dataUI = new DataUI(io, dataService, studentRepository, roomRepository, bookingRepository);
     private final BookingService bookingService;
+    private final BookingUI bookingUI;
+    private final FeeUI feeUI;
 
     public static void main(String[] args) throws Exception {
         System.setOut(new PrintStream(System.out, true, "UTF-8"));
@@ -66,6 +70,8 @@ public class Main {
         validators.add(new OverlapValidator(bookingRepository));
         validators.add(new MaxHoursValidator(bookingRepository));
         bookingService = new BookingService(bookingRepository, roomRepository, new FreeFeePolicy(), validators);
+        bookingUI = new BookingUI(io, bookingService, roomService, studentRepository);
+        feeUI = new FeeUI(io, bookingService);
     }
 
     private void run() {
@@ -78,12 +84,12 @@ public class Main {
                 case "1": studentUI.run(); break;
                 case "2": roomUI.run(); break;
                 case "3": roomUI.showRoomList(); break;
-                case "4": checkFreeSlots(); break;
-                case "5": createBooking(); break;
-                case "6": listBookings(); break;
-                case "7": showBookingDetail(); break;
-                case "8": cancelBooking(); break;
-                case "9": feeMenu(); break;
+                case "4": bookingUI.checkFreeSlots(); break;
+                case "5": bookingUI.createBooking(); break;
+                case "6": bookingUI.listBookings(); break;
+                case "7": bookingUI.showBookingDetail(); break;
+                case "8": bookingUI.cancelBooking(); break;
+                case "9": feeUI.run(); break;
                 case "10": dataUI.save(); break;
                 case "11": dataUI.load(); break;
                 case "0": running = false; break;
@@ -107,136 +113,6 @@ public class Main {
         System.out.println("10. Luu du lieu");
         System.out.println("11. Tai du lieu");
         System.out.println(" 0. Thoat");
-    }
-
-    // ------------------------------------------------------------ gio trong
-    private void checkFreeSlots() {
-        String roomId = readLine("Ma phong: ").trim();
-        LocalDate date = readDate("Ngay (dd/MM/yyyy): ");
-        if (date == null) return;
-        runGuarded(() -> {
-            Room room = roomService.getRoom(roomId);
-            if (room.isUnderMaintenance()) {
-                System.out.println(room.getRoomName() + " dang bao tri, khong co gio trong.");
-                return;
-            }
-            List<TimeSlot> free = roomService.findFreeSlots(roomId, date);
-            System.out.println("Gio trong cua " + room.getRoomName() + " ngay " + DateTimeUtils.formatDate(date)
-                    + " (tu " + RoomService.OPEN_TIME + " den " + RoomService.CLOSE_TIME + "):");
-            if (free.isEmpty()) System.out.println("  (het cho)");
-            for (TimeSlot s : free) System.out.println("  " + s);
-        });
-    }
-
-    // ------------------------------------------------------------ booking
-    private void createBooking() {
-        String studentId = readLine("Ma SV: ").trim();
-        String roomId = readLine("Ma phong: ").trim();
-        LocalDateTime start = readDateTime("Gio bat dau (dd/MM/yyyy HH:mm): ");
-        if (start == null) return;
-        LocalDateTime end = readDateTime("Gio ket thuc (dd/MM/yyyy HH:mm): ");
-        if (end == null) return;
-        Integer people = readIntOrNull("So nguoi: ");
-        if (people == null) return;
-        try {
-            Booking b = bookingService.createBooking(studentId, roomId, new TimeSlot(start, end), people);
-            System.out.println("Dat phong thanh cong! Ma booking: " + b.getBookingId()
-                    + " - Phi: " + DateTimeUtils.formatMoney(b.getFee()));
-        } catch (BookingException e) {
-            System.out.println("Khong the dat phong: " + e.getMessage());
-        }
-    }
-
-    private void listBookings() {
-        List<Booking> list = bookingService.getAllBookings();
-        if (list.isEmpty()) {
-            System.out.println("Chua co booking nao.");
-            return;
-        }
-        for (Booking b : list) System.out.println(b);
-    }
-
-    private void showBookingDetail() {
-        String id = readLine("Ma booking: ").trim();
-        try {
-            BookingDetail d = bookingService.getDetail(id, studentRepository);
-            System.out.println(d.describe());
-        } catch (BookingException e) {
-            System.out.println(e.getMessage());
-        }
-    }
-
-    private void cancelBooking() {
-        String id = readLine("Ma booking: ").trim();
-        String studentId = readLine("Ma SV dat phong: ").trim();
-        try {
-            bookingService.cancelBooking(id, studentId);
-            System.out.println("Da huy booking " + id + ". Khung gio nay da trong tro lai.");
-        } catch (BookingException e) {
-            System.out.println("Khong the huy: " + e.getMessage());
-        }
-    }
-
-    // ------------------------------------------------------------ phi
-    private void feeMenu() {
-        System.out.println("\nChinh sach phi hien tai: " + bookingService.getFeePolicy().getName());
-        System.out.println("1.Uoc tinh phi  2.Doi chinh sach phi (chi ap dung cho booking moi)  3.Xem phi cac booking  0.Quay lai");
-        switch (readLine("Chon: ")) {
-            case "1": {
-                String roomId = readLine("Ma phong: ").trim();
-                LocalDateTime start = readDateTime("Gio bat dau (dd/MM/yyyy HH:mm): ");
-                if (start == null) return;
-                LocalDateTime end = readDateTime("Gio ket thuc (dd/MM/yyyy HH:mm): ");
-                if (end == null) return;
-                try {
-                    double fee = bookingService.estimateFee(roomId, new TimeSlot(start, end));
-                    System.out.println("Phi uoc tinh: " + DateTimeUtils.formatMoney(fee));
-                } catch (BookingException e) {
-                    System.out.println(e.getMessage());
-                }
-                break;
-            }
-            case "2": changeFeePolicy(); break;
-            case "3":
-                for (Booking b : bookingService.getAllBookings()) {
-                    System.out.println(b.getBookingId() + ": " + DateTimeUtils.formatMoney(b.getFee())
-                            + (b.isActive() ? "" : " (da huy)"));
-                }
-                if (bookingService.getAllBookings().isEmpty()) System.out.println("Chua co booking nao.");
-                break;
-            case "0": break;
-            default: System.out.println("Lua chon khong hop le.");
-        }
-    }
-
-    private void changeFeePolicy() {
-        System.out.println("1.Mien phi  2.Theo gio (cung don gia)  3.Theo loai phong");
-        switch (readLine("Chon: ")) {
-            case "1":
-                bookingService.setFeePolicy(new FreeFeePolicy());
-                break;
-            case "2": {
-                Double rate = readRate("Don gia moi gio (VND): ");
-                if (rate == null) return;
-                bookingService.setFeePolicy(new HourlyFeePolicy(rate));
-                break;
-            }
-            case "3": {
-                Map<String, Double> rates = new LinkedHashMap<>();
-                String[] types = {"NORMAL", "PROJECTOR", "SEMINAR"};
-                for (String t : types) {
-                    Double rate = readRate("Don gia moi gio cho phong " + t + " (VND): ");
-                    if (rate == null) return;
-                    rates.put(t, rate);
-                }
-                bookingService.setFeePolicy(new RoomTypeFeePolicy(rates));
-                break;
-            }
-            default:
-                System.out.println("Lua chon khong hop le.");
-                return;
-        }
-        System.out.println("Da doi chinh sach phi: " + bookingService.getFeePolicy().getName());
     }
 
     // ------------------------------------------------------------ file
