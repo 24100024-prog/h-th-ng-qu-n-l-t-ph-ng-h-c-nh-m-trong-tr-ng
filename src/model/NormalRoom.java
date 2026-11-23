@@ -11,3 +11,4 @@ public class NormalRoom extends Room {
     @Override
     public String getExtraInfo() { return ""; }
 }
+
