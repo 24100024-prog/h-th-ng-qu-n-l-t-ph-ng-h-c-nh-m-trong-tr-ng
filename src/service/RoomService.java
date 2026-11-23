@@ -75,6 +75,9 @@ public class RoomService {
 
     /** Cac khoang trong lien tuc cua phong trong mot ngay (giua OPEN_TIME va CLOSE_TIME); phong bao tri khong co khoang trong. */
     public List<TimeSlot> findFreeSlots(String roomId, LocalDate date) {
+        if (date == null) {
+            throw new IllegalArgumentException("Ngay tim gio trong khong duoc null");
+        }
         Room room = getRoom(roomId);
         List<TimeSlot> free = new ArrayList<>();
         if (room.isUnderMaintenance()) return free;
@@ -102,13 +105,40 @@ public class RoomService {
         return free;
     }
 
-    /** Phong co trong tron khoang gio yeu cau hay khong (chua ke bao tri: phong bao tri luon tra false). */
+    /**
+     * Kiem tra phong co trong tron khoang gio yeu cau hay khong.
+     * Tra ve false neu khung gio null/sai, nam ngoai gio hoat dong,
+     * phong dang bao tri hoac bi trung voi booking dang hieu luc.
+     */
     public boolean isAvailable(String roomId, TimeSlot slot) {
         Room room = getRoom(roomId);
-        if (room.isUnderMaintenance()) return false;
+        if (room.isUnderMaintenance() || !isWithinOperatingHours(slot)) return false;
+
         for (Booking b : bookingRepository.findAll()) {
-            if (b.isActive() && b.getRoomId().equals(roomId) && b.getTimeSlot().overlaps(slot)) return false;
+            if (b.isActive()
+                    && b.getRoomId().equals(roomId)
+                    && b.getTimeSlot() != null
+                    && b.getTimeSlot().isValid()
+                    && b.getTimeSlot().overlaps(slot)) {
+                return false;
+            }
         }
         return true;
     }
+
+    /**
+     * Khung gio hop le khi nam tron trong cung mot ngay,
+     * bat dau khong som hon OPEN_TIME va ket thuc khong muon hon CLOSE_TIME.
+     */
+    public static boolean isWithinOperatingHours(TimeSlot slot) {
+        if (slot == null || !slot.isValid()) return false;
+
+        LocalDateTime start = slot.getStartTime();
+        LocalDateTime end = slot.getEndTime();
+
+        return start.toLocalDate().equals(end.toLocalDate())
+                && !start.toLocalTime().isBefore(OPEN_TIME)
+                && !end.toLocalTime().isAfter(CLOSE_TIME);
+    }
 }
+
