@@ -38,3 +38,4 @@ public class BookingDetail {
         return sb.toString();
     }
 }
+
