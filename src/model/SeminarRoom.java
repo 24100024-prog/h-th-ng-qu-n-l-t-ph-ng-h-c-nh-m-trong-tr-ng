@@ -20,3 +20,4 @@ public class SeminarRoom extends Room {
     @Override
     public String toString() { return super.toString() + " | suc chua san khau: " + stageCapacity; }
 }
+
