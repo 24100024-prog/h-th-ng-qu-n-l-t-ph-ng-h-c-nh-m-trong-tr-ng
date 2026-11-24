@@ -1,9 +1,14 @@
 package main;
 
-import model.Booking;
-import model.BookingDetail;
-import model.Room;
-import model.TimeSlot;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Scanner;
+import javax.swing.SwingUtilities;
 import repository.BookingRepository;
 import repository.RoomRepository;
 import repository.StudentRepository;
@@ -12,35 +17,20 @@ import service.DataService;
 import service.RoomService;
 import service.StudentService;
 import service.policy.FreeFeePolicy;
-import service.policy.HourlyFeePolicy;
-import service.policy.RoomTypeFeePolicy;
 import service.validator.BookingValidator;
 import service.validator.CapacityValidator;
 import service.validator.MaxHoursValidator;
 import service.validator.OverlapValidator;
 import service.validator.StudentExistsValidator;
-import utils.DateTimeUtils;
-import utils.InputValidator;
-import ui.MainGUI;
+import ui.BookingUI;
 import ui.ConsoleIO;
 import ui.DataUI;
-import ui.BookingUI;
 import ui.FeeUI;
+import ui.MainGUI;
 import ui.RoomUI;
 import ui.StudentUI;
-import utils.exceptions.BookingException;
-
-import java.io.IOException;
-import java.io.PrintStream;
-import java.nio.file.Path;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Scanner;
-import javax.swing.SwingUtilities;
+import utils.DateTimeUtils;
+import utils.InputValidator;
 
 public class Main {
     private final Scanner scanner = new Scanner(System.in, "UTF-8");
@@ -65,7 +55,7 @@ public class Main {
         SwingUtilities.invokeLater(() -> {
             Main app = new Main();
             app.autoLoad();
-            new MainGUI(app.roomService, app.bookingService, app.dataService).setVisible(true);
+            new MainGUI(app.roomService, app.bookingService, app.studentService, app.dataService).setVisible(true);
         });
     }
 

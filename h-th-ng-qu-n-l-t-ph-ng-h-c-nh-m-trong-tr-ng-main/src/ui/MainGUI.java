@@ -1,11 +1,16 @@
 package ui;
 
 import model.Booking;
+import model.NormalRoom;
+import model.ProjectorRoom;
 import model.Room;
+import model.SeminarRoom;
+import model.Student;
 import model.TimeSlot;
 import service.BookingService;
 import service.DataService;
 import service.RoomService;
+import service.StudentService;
 import utils.DateTimeUtils;
 import utils.InputValidator;
 import utils.exceptions.BookingException;
@@ -23,10 +28,15 @@ import java.util.List;
 public class MainGUI extends JFrame {
     private final RoomService roomService;
     private final BookingService bookingService;
+    private final StudentService studentService;
     private final DataService dataService;
 
+    // Bảng dữ liệu
     private DefaultTableModel roomTableModel;
     private DefaultTableModel bookingTableModel;
+    private DefaultTableModel studentTableModel;
+
+    // Tab Đặt phòng
     private JComboBox<String> cbRoomSelect;
     private JTextField txtStudentId;
     private JTextField txtPeople;
@@ -35,13 +45,28 @@ public class MainGUI extends JFrame {
     private JTextField txtCancelBookingId;
     private JTextField txtCancelStudentId;
 
-    public MainGUI(RoomService roomService, BookingService bookingService, DataService dataService) {
+    // Tab Quản lý Phòng
+    private JTextField txtNewRoomId;
+    private JTextField txtNewRoomName;
+    private JComboBox<String> cbNewRoomType;
+    private JTextField txtNewRoomCap;
+    private JTextField txtNewRoomExtra;
+    private JTextField txtManageRoomId;
+
+    // Tab Quản lý Sinh viên
+    private JTextField txtNewStuId;
+    private JTextField txtNewStuName;
+    private JTextField txtNewStuEmail;
+
+    public MainGUI(RoomService roomService, BookingService bookingService,
+                   StudentService studentService, DataService dataService) {
         this.roomService = roomService;
         this.bookingService = bookingService;
+        this.studentService = studentService;
         this.dataService = dataService;
 
         setTitle("Hệ Thống Quản Lý Đặt Phòng Học Nhóm");
-        setSize(1020, 650);
+        setSize(1060, 680);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
@@ -51,31 +76,29 @@ public class MainGUI extends JFrame {
     }
 
     private void initUI() {
-        // 1. HEADER + LOGO từ thư mục assets/logo.png
+        // 1. HEADER + LOGO
         JPanel headerPanel = new JPanel(new BorderLayout(15, 10));
         headerPanel.setBackground(new Color(21, 101, 192));
         headerPanel.setBorder(new EmptyBorder(12, 20, 12, 20));
 
         JLabel lblLogo = new JLabel();
         String[] candidatePaths = {
-            "assets/logo.png",
-            "./assets/logo.png",
-            "D:/h th ng qu n l t ph ng h c nh m trong tr ng-main/assets/logo.png"
+                "assets/logo.png",
+                "./assets/logo.png",
+                "h-th-ng-qu-n-l-t-ph-ng-h-c-nh-m-trong-tr-ng-main/assets/logo.png"
         };
-
         ImageIcon loadedIcon = null;
         for (String path : candidatePaths) {
             File f = new File(path);
             if (f.exists() && f.isFile()) {
                 ImageIcon rawIcon = new ImageIcon(f.getAbsolutePath());
                 if (rawIcon.getIconWidth() > 0) {
-                    Image scaledImg = rawIcon.getImage().getScaledInstance(64, 64, Image.SCALE_SMOOTH);
+                    Image scaledImg = rawIcon.getImage().getScaledInstance(56, 56, Image.SCALE_SMOOTH);
                     loadedIcon = new ImageIcon(scaledImg);
                     break;
                 }
             }
         }
-
         if (loadedIcon != null) {
             lblLogo.setIcon(loadedIcon);
         } else {
@@ -101,15 +124,47 @@ public class MainGUI extends JFrame {
         JTabbedPane tabbedPane = new JTabbedPane();
         tabbedPane.setFont(new Font("Segoe UI", Font.PLAIN, 14));
 
-        tabbedPane.addTab("Danh Sách Phòng", createRoomPanel());
-        tabbedPane.addTab("Đặt Phòng & Quản Lý Booking", createBookingPanel());
+        tabbedPane.addTab("Quản Lý Phòng", createRoomPanel());
+        tabbedPane.addTab("Đặt Phòng & Booking", createBookingPanel());
+        tabbedPane.addTab("Quản Lý Sinh Viên", createStudentPanel());
         add(tabbedPane, BorderLayout.CENTER);
     }
 
+    // ==================== TAB 1: QUẢN LÝ PHÒNG ====================
     private JPanel createRoomPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
+        // Form thêm phòng mới
+        JPanel addForm = new JPanel(new GridLayout(3, 4, 10, 8));
+        addForm.setBorder(BorderFactory.createTitledBorder("Thêm Phòng Học Mới"));
+
+        txtNewRoomId = new JTextField();
+        txtNewRoomName = new JTextField();
+        cbNewRoomType = new JComboBox<>(new String[]{"NORMAL", "PROJECTOR", "SEMINAR"});
+        txtNewRoomCap = new JTextField("10");
+        txtNewRoomExtra = new JTextField();
+
+        JButton btnAddRoom = new JButton("Thêm Phòng");
+        btnAddRoom.setBackground(new Color(21, 101, 192));
+        btnAddRoom.setForeground(Color.WHITE);
+        btnAddRoom.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnAddRoom.addActionListener(e -> handleAddRoom());
+
+        addForm.add(new JLabel("Mã Phòng (VD: P101):"));
+        addForm.add(txtNewRoomId);
+        addForm.add(new JLabel("Tên Phòng:"));
+        addForm.add(txtNewRoomName);
+        addForm.add(new JLabel("Loại Phòng:"));
+        addForm.add(cbNewRoomType);
+        addForm.add(new JLabel("Sức Chứa:"));
+        addForm.add(txtNewRoomCap);
+        addForm.add(new JLabel("Thiết bị thêm (Máy chiếu / Âm thanh):"));
+        addForm.add(txtNewRoomExtra);
+        addForm.add(new JLabel(""));
+        addForm.add(btnAddRoom);
+
+        // Bảng danh sách phòng
         String[] cols = {"Mã Phòng", "Tên Phòng", "Loại Phòng", "Sức Chứa", "Trạng Thái", "Thông Tin Thêm"};
         roomTableModel = new DefaultTableModel(cols, 0) {
             @Override
@@ -117,24 +172,42 @@ public class MainGUI extends JFrame {
                 return false;
             }
         };
-
         JTable table = new JTable(roomTableModel);
-        table.setRowHeight(28);
-        table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        table.setRowHeight(26);
 
-        JButton btnRefresh = new JButton("Làm Mới Danh Sách");
-        btnRefresh.addActionListener(e -> loadRooms());
+        // Thanh thao tác nhanh trên phòng (Bảo trì / Kích hoạt / Xóa)
+        JPanel actionBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        actionBar.setBorder(BorderFactory.createTitledBorder("Cập Nhật Trạng Thái / Xóa Phòng"));
+        txtManageRoomId = new JTextField(10);
 
+        JButton btnMaint = new JButton("Đặt Bảo Trì");
+        btnMaint.addActionListener(e -> handleToggleMaintenance(true));
+
+        JButton btnActive = new JButton("Mở Hoạt Động");
+        btnActive.addActionListener(e -> handleToggleMaintenance(false));
+
+        JButton btnDeleteRoom = new JButton("Xóa Phòng");
+        btnDeleteRoom.setBackground(new Color(198, 40, 40));
+        btnDeleteRoom.setForeground(Color.WHITE);
+        btnDeleteRoom.addActionListener(e -> handleDeleteRoom());
+
+        actionBar.add(new JLabel("Nhập Mã Phòng:"));
+        actionBar.add(txtManageRoomId);
+        actionBar.add(btnMaint);
+        actionBar.add(btnActive);
+        actionBar.add(btnDeleteRoom);
+
+        panel.add(addForm, BorderLayout.NORTH);
         panel.add(new JScrollPane(table), BorderLayout.CENTER);
-        panel.add(btnRefresh, BorderLayout.SOUTH);
+        panel.add(actionBar, BorderLayout.SOUTH);
         return panel;
     }
 
+    // ==================== TAB 2: ĐẶT PHÒNG & BOOKING ====================
     private JPanel createBookingPanel() {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
-        // Form đặt phòng
         JPanel formPanel = new JPanel(new GridLayout(3, 4, 10, 10));
         formPanel.setBorder(BorderFactory.createTitledBorder("Tạo Phiếu Đặt Phòng (Giờ mở cửa: 07:00 - 21:00)"));
 
@@ -163,7 +236,6 @@ public class MainGUI extends JFrame {
         formPanel.add(new JLabel(""));
         formPanel.add(btnBook);
 
-        // Bảng danh sách booking
         String[] bookingCols = {"Mã BK", "Mã SV", "Mã Phòng", "Khung Giờ", "Số Người", "Phí (VND)", "Trạng Thái"};
         bookingTableModel = new DefaultTableModel(bookingCols, 0) {
             @Override
@@ -174,7 +246,6 @@ public class MainGUI extends JFrame {
         JTable bookingTable = new JTable(bookingTableModel);
         bookingTable.setRowHeight(26);
 
-        // Thanh hủy booking ở dưới cùng
         JPanel cancelPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
         cancelPanel.setBorder(BorderFactory.createTitledBorder("Hủy Booking"));
         txtCancelBookingId = new JTextField(10);
@@ -199,12 +270,135 @@ public class MainGUI extends JFrame {
         return panel;
     }
 
+    // ==================== TAB 3: QUẢN LÝ SINH VIÊN ====================
+    private JPanel createStudentPanel() {
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBorder(new EmptyBorder(10, 10, 10, 10));
+
+        JPanel stuForm = new JPanel(new GridLayout(2, 4, 10, 8));
+        stuForm.setBorder(BorderFactory.createTitledBorder("Đăng Ký Sinh Viên Mới"));
+
+        txtNewStuId = new JTextField();
+        txtNewStuName = new JTextField();
+        txtNewStuEmail = new JTextField();
+
+        JButton btnAddStu = new JButton("Thêm Sinh Viên");
+        btnAddStu.setBackground(new Color(21, 101, 192));
+        btnAddStu.setForeground(Color.WHITE);
+        btnAddStu.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnAddStu.addActionListener(e -> handleAddStudent());
+
+        stuForm.add(new JLabel("Mã Sinh Viên (VD: 24100024):"));
+        stuForm.add(txtNewStuId);
+        stuForm.add(new JLabel("Họ và Tên:"));
+        stuForm.add(txtNewStuName);
+        stuForm.add(new JLabel("Email / Lớp:"));
+        stuForm.add(txtNewStuEmail);
+        stuForm.add(new JLabel(""));
+        stuForm.add(btnAddStu);
+
+        String[] stuCols = {"Mã Sinh Viên", "Họ và Tên", "Thông Tin Liên Hệ / Lớp"};
+        studentTableModel = new DefaultTableModel(stuCols, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        JTable stuTable = new JTable(studentTableModel);
+        stuTable.setRowHeight(26);
+
+        panel.add(stuForm, BorderLayout.NORTH);
+        panel.add(new JScrollPane(stuTable), BorderLayout.CENTER);
+        return panel;
+    }
+
+    // ==================== XỬ LÝ SỰ KIỆN ====================
+    private void handleAddRoom() {
+        try {
+            String id = txtNewRoomId.getText().trim();
+            String name = txtNewRoomName.getText().trim();
+            String type = (String) cbNewRoomType.getSelectedItem();
+            Integer cap = InputValidator.parseInt(txtNewRoomCap.getText().trim());
+            String extra = txtNewRoomExtra.getText().trim();
+
+            if (cap == null || cap <= 0) {
+                JOptionPane.showMessageDialog(this, "Sức chứa phải là số nguyên dương!", "Lỗi nhập liệu", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            Room room;
+            if ("PROJECTOR".equals(type)) {
+                room = new ProjectorRoom(id, name, cap, Room.ACTIVE, true);
+            } else if ("SEMINAR".equals(type)) {
+                int stageCap = InputValidator.parseInt(extra) != null ? InputValidator.parseInt(extra) : 5;
+                room = new SeminarRoom(id, name, cap, Room.ACTIVE, stageCap);
+            } else {
+                room = new NormalRoom(id, name, cap, Room.ACTIVE);
+            }
+
+            roomService.addRoom(room);
+            saveDataToDisk(false);
+            refreshAllData();
+            txtNewRoomId.setText("");
+            txtNewRoomName.setText("");
+            txtNewRoomExtra.setText("");
+            JOptionPane.showMessageDialog(this, "Đã thêm phòng " + id + " thành công!");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Không thể thêm phòng", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void handleToggleMaintenance(boolean maintenance) {
+        try {
+            String roomId = txtManageRoomId.getText().trim();
+            roomService.setMaintenance(roomId, maintenance);
+            saveDataToDisk(false);
+            refreshAllData();
+            JOptionPane.showMessageDialog(this, "Đã cập nhật trạng thái phòng " + roomId + "!");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Lỗi cập nhật", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void handleDeleteRoom() {
+        try {
+            String roomId = txtManageRoomId.getText().trim();
+            roomService.deleteRoom(roomId);
+            saveDataToDisk(false);
+            refreshAllData();
+            txtManageRoomId.setText("");
+            JOptionPane.showMessageDialog(this, "Đã xóa phòng " + roomId + "!");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Không thể xóa phòng", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void handleAddStudent() {
+        try {
+            String id = txtNewStuId.getText().trim();
+            String name = txtNewStuName.getText().trim();
+            String email = txtNewStuEmail.getText().trim();
+
+            Student student = new Student(id, name, email, email.isEmpty() ? "CNTT" : email);
+            studentService.addStudent(student);
+            saveDataToDisk(false);
+            refreshAllData();
+
+            txtNewStuId.setText("");
+            txtNewStuName.setText("");
+            txtNewStuEmail.setText("");
+            JOptionPane.showMessageDialog(this, "Đã thêm sinh viên " + name + " (" + id + ")!");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, ex.getMessage(), "Không thể thêm sinh viên", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
     private void handleCreateBooking() {
         try {
             String studentId = txtStudentId.getText().trim();
             String selected = (String) cbRoomSelect.getSelectedItem();
             if (selected == null || selected.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Chưa có phòng nào trong danh sách!", "Thông báo", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Chưa có phòng hoạt động nào! Hãy sang tab 'Quản Lý Phòng' để thêm phòng trước.", "Thông báo", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             String roomId = selected.split(" - ")[0].trim();
@@ -254,6 +448,7 @@ public class MainGUI extends JFrame {
     public void refreshAllData() {
         loadRooms();
         loadBookings();
+        loadStudents();
     }
 
     private void loadRooms() {
@@ -291,6 +486,18 @@ public class MainGUI extends JFrame {
                     b.getNumberOfPeople(),
                     b.getFee(),
                     b.getStatus()
+            });
+        }
+    }
+
+    private void loadStudents() {
+        studentTableModel.setRowCount(0);
+        List<Student> students = studentService.getAllStudents();
+        for (Student s : students) {
+            studentTableModel.addRow(new Object[]{
+                    s.getId(),
+                    s.getName(),
+                    s.getEmail()
             });
         }
     }
